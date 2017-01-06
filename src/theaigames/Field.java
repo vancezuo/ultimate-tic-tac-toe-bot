@@ -116,7 +116,7 @@ public class Field {
 	}
 	
 	public Boolean isInActiveMicroboard(int x, int y) {
-	    return mMacroboard[(int) x/3][(int) y/3] == -1;
+	    return mMacroboard[x /3][y /3] == -1;
 	}
 	
 	/**
@@ -191,4 +191,12 @@ public class Field {
 	public int getPlayerId(int column, int row) {
 		return mBoard[column][row];
 	}
+
+  public int getMacroId(int col, int row) {
+	  return mMacroboard[col][row];
+  }
+
+  public int getMoveNr() {
+    return mMoveNr;
+  }
 }
