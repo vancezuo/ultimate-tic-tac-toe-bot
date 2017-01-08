@@ -14,7 +14,8 @@ import static bot.Util.*;
  * @author Vance Zuo
  */
 public class Bot {
-  private static final int BUFFER_TIME = 250;
+  private static final int TIME_BUFFER = 250;
+  private static final int TIME_INCREMENT = 500;
 
   private final Scanner input;
 
@@ -58,11 +59,12 @@ public class Bot {
         }
       } else if (parts[0].equals("action") && parts[1].equals("move")) { // own move
         System.err.println("processing: " + line);
-        int timeLeft = parseInt(parts[2], 500) - BUFFER_TIME;
+        int timeLeft = parseInt(parts[2], TIME_INCREMENT) - TIME_BUFFER;
         int movesLeft = getMovesLeft();
+        int thinkTime = Math.min(timeLeft / movesLeft + TIME_INCREMENT, timeLeft);
         int move;
         try {
-          move = think(timeLeft / movesLeft);
+          move = think(thinkTime);
         } catch (Exception e) {
           move = generateRandomMove();
           System.err.println("miscellaneous error: " + e);
