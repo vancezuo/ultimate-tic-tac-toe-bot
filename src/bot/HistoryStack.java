@@ -15,16 +15,16 @@ public class HistoryStack {
     size = 0;
   }
 
+  public HistoryStack(HistoryStack historyStack) {
+    this.moves = Arrays.copyOf(historyStack.moves, historyStack.moves.length);
+    this.macroInds = Arrays.copyOf(historyStack.macroInds, historyStack.macroInds.length);
+    this.size = historyStack.size;
+  }
+
   HistoryStack(int[] moves, int[] macroInds, int size) {
     this.moves = moves;
     this.macroInds = macroInds;
     this.size = size;
-  }
-
-  HistoryStack(HistoryStack historyStack) {
-    this.moves = Arrays.copyOf(historyStack.moves, historyStack.moves.length);
-    this.macroInds = Arrays.copyOf(historyStack.macroInds, historyStack.macroInds.length);
-    this.size = historyStack.size;
   }
 
   public boolean empty() {

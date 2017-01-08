@@ -4,7 +4,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.Callable;
 
-import static bot.Evaluator.PLAYER_MAX;
+import static bot.EvaluatedGame.PLAYER_MAX;
 import static bot.Util.MAX_MOVES;
 
 /**
@@ -80,12 +80,15 @@ public class Searcher {
     }
   }
 
-  private final Evaluator eval;
+  private final EvaluatedGame masterGame;
+
+  // Separate game for search do/undo move so that exceptions don't pollute 'master' game
+  private EvaluatedGame game;
 
   private long nodes;
 
-  public Searcher(Evaluator eval) {
-    this.eval = eval;
+  public Searcher(EvaluatedGame game) {
+    this.masterGame = game;
   }
 
   public long getNodes() {
@@ -93,25 +96,26 @@ public class Searcher {
   }
 
   public Result search(int depth) {
-    return search(depth, Evaluator.MIN_SCORE - 1, Evaluator.MAX_SCORE + 1);
+    game = new EvaluatedGame(masterGame);
+    return search(depth, EvaluatedGame.MIN_SCORE - 1, EvaluatedGame.MAX_SCORE + 1);
   }
 
   private Result search(int depth, int alpha, int beta) {
     nodes++;
 
-    if (eval.hasFinishedGame())
-      return new Result(eval.score(), null, true);
+    if (game.isFinished())
+      return new Result(game.score(), null, true);
     if (depth <= 0)
-      return new Result(eval.score(), null, false);
+      return new Result(game.score(), null, false);
 
-    boolean maxi = eval.getCurrentPlayer() == PLAYER_MAX;
+    boolean maxi = game.getCurrentPlayer() == PLAYER_MAX;
 
     List<Integer> pv = new ArrayList<>(depth);
     boolean proof = false;
-    for (int move : eval.generateMoves()) {
-      eval.doMove(move);
+    for (int move : game.unsafeGenerateMoves()) {
+      game.unsafeDoMove(move);
       Result result = search(depth - 1, alpha, beta);
-      eval.undoMove();
+      game.unsafeUndoMove();
       if (result == null || Thread.currentThread().isInterrupted())
         return null;
       int score = result.getScore();
@@ -128,9 +132,9 @@ public class Searcher {
     }
 
     int score = maxi ? alpha : beta;
-    if (score == Evaluator.MIN_SCORE + depth - 1) {
+    if (score == EvaluatedGame.MIN_SCORE + depth - 1) {
       score++;
-    } else if (score == Evaluator.MAX_SCORE - depth + 1) {
+    } else if (score == EvaluatedGame.MAX_SCORE - depth + 1) {
       score--;
     }
 

@@ -19,8 +19,7 @@ public class Bot {
   private final Scanner input;
 
   private Field field;
-  private Game game;
-  private Evaluator eval;
+  private EvaluatedGame game;
   private Searcher searcher;
 
   public Bot() {
@@ -29,9 +28,8 @@ public class Bot {
 
   private void reset() {
     field = new Field();
-    game = new Game();
-    eval = new Evaluator(game);
-    searcher = new Searcher(eval);
+    game = new EvaluatedGame();
+    searcher = new Searcher(game);
   }
 
   public void run() {
@@ -51,11 +49,11 @@ public class Bot {
         if (parts[2].equals("field")) { // opponent move
           int move = deduceLastMove();
           if (move != -1) {
-            eval.doMove(move);
-            System.err.println("opponent move: " + move);
+            game.unsafeDoMove(move);
+            System.err.printf("opponent move: %s (%s, %s)\n", move, row(move), col(move));
             System.err.println(game.getFormattedBoardString());
           } else {
-            System.err.println("opponent move: ERROR");
+            System.err.println("opponent move: ERROR/NONE");
           }
         }
       } else if (parts[0].equals("action") && parts[1].equals("move")) { // own move
@@ -67,11 +65,11 @@ public class Bot {
           move = think(timeLeft / movesLeft);
         } catch (Exception e) {
           move = generateRandomMove();
-          System.err.println(e.getMessage());
+          System.err.println("miscellaneous error: " + e);
         }
         System.out.println("place_move " + col(move) + " " + row(move));
         if (move != -1) {
-          eval.doMove(move);
+          game.unsafeDoMove(move);
           System.err.printf("own move: %s (%s, %s)\n", move, row(move), col(move));
           System.err.println(game.getFormattedBoardString());
         } else {
@@ -104,11 +102,11 @@ public class Bot {
   }
 
   private int getMovesLeft() {
-    return MAX_MOVES - field.getMoveNr() + 1;
+    return field.getAvailableMoves().size();
   }
 
-  public int think(int time) throws ExecutionException, TimeoutException, InterruptedException {
-    if (eval.hasFinishedGame())
+  public int think(int time) {
+    if (game.isFinished())
       throw new IllegalStateException("Game over. No legal moves.");
 
     System.err.println("called think(" + time + ")");
@@ -127,12 +125,12 @@ public class Bot {
         result = future.get(timeRemaining, TimeUnit.MILLISECONDS);
       } catch (TimeoutException | InterruptedException e) {
         if (depth <= 1) {
-          throw e;
+          System.err.println("early timeout/interrupt error");
         }
         break;
       } catch (ExecutionException e) {
-        executor.shutdown();
-        throw e;
+        e.printStackTrace();
+        break;
       } finally {
         future.cancel(true);
       }
@@ -143,7 +141,7 @@ public class Bot {
     }
     executor.shutdown();
 
-    return result.getPVMove();
+    return result != null ? result.getPVMove() : generateRandomMove();
   }
 
   private void printSearchResultHeader() {
@@ -159,7 +157,7 @@ public class Bot {
       int distance;
       if (result.getScore() != 0) {
         resultStr = "win";
-        distance = Math.abs(Math.abs(result.getScore()) - Evaluator.MAX_SCORE);
+        distance = Math.abs(Math.abs(result.getScore()) - EvaluatedGame.MAX_SCORE);
       } else {
         resultStr = "draw";
         distance = getMovesLeft();

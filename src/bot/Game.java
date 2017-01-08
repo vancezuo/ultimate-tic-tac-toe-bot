@@ -27,6 +27,15 @@ public class Game {
     reset();
   }
 
+  public Game(Game game) {
+    board = Arrays.copyOf(game.board, game.board.length);
+    macroboard = Arrays.copyOf(game.macroboard, game.macroboard.length);
+    nextMacroInd = game.nextMacroInd;
+    currentPlayer = game.currentPlayer;
+    winner = game.winner;
+    history = new HistoryStack(game.history);
+  }
+
   Game(int[] board,
        int[] macroboard,
        int nextMacroInd,
@@ -107,7 +116,16 @@ public class Game {
   }
 
   public boolean isFinished() {
-    return hasWinner() || history.size() == MAX_MOVES;
+    return hasWinner() || isDrawn();
+  }
+
+  private boolean isDrawn() {
+    for (int player : macroboard) {
+      if (player == PLAYER_NONE) {
+        return false;
+      }
+    }
+    return true;
   }
 
   public boolean isEmpty(int ind) {
@@ -195,7 +213,8 @@ public class Game {
           @Override
           public boolean hasNext() {
             while (potentialMove < BOARD_SIZE) {
-              if (board[potentialMove] == PLAYER_NONE)
+              if (board[potentialMove] == PLAYER_NONE
+                  && macroboard[macroIndex(potentialMove)] == PLAYER_NONE)
                 return true;
               potentialMove++;
             }
