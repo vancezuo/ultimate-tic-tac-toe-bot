@@ -1,10 +1,12 @@
 package bot;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.Callable;
 
-import static bot.EvaluatedGame.PLAYER_MAX;
+import static bot.EvaluatedGame.*;
+import static bot.TranspositionTable.Entry.Type.*;
 import static bot.Util.MAX_MOVES;
 
 /**
@@ -81,6 +83,7 @@ public class Searcher {
   }
 
   private final EvaluatedGame masterGame;
+  private final TranspositionTable table;
 
   // Separate game for search do/undo move so that exceptions don't pollute 'master' game
   private EvaluatedGame game;
@@ -89,30 +92,67 @@ public class Searcher {
 
   public Searcher(EvaluatedGame game) {
     this.masterGame = game;
+    this.table = new TranspositionTable();
+  }
+
+  public TranspositionTable getTable() {
+    return table;
   }
 
   public long getNodes() {
     return nodes;
   }
 
+  public void resetNodes() {
+    nodes = 0;
+  }
+
   public Result search(int depth) {
     game = new EvaluatedGame(masterGame);
-    return search(depth, EvaluatedGame.MIN_SCORE - 1, EvaluatedGame.MAX_SCORE + 1);
+    table.setMoveNumberCutoff(game.getMoveNumber());
+    return search(depth, MIN_SCORE - 1, MAX_SCORE + 1);
   }
 
   private Result search(int depth, int alpha, int beta) {
     nodes++;
 
-    if (game.isFinished())
-      return new Result(game.score(), null, true);
-    if (depth <= 0)
-      return new Result(game.score(), null, false);
-
     boolean maxi = game.getCurrentPlayer() == PLAYER_MAX;
 
+    // Check transposition table
+    TranspositionTable.Entry ttEntry = table.get(game.getZobristKey());
+    if (ttEntry != null && ttEntry.depth >= depth) {
+      byte type = ttEntry.type;
+      int score = ttEntry.score;
+      if (type == PV_NODE
+          || (type == CUT_NODE && (maxi ? score >= beta : score <= alpha))
+          || (type == ALL_NODE && (maxi ? score <= alpha : score >= beta))) {
+        int move = ttEntry.move;
+        List<Integer> pv = (move != -1) ? Collections.singletonList(move) : null;
+        return new Result(score, pv, ttEntry.proof);
+      }
+    }
+
+    // Check win/draw conditions
+    if (game.hasWinner()) {
+      int score = (game.getWinner() == PLAYER_MAX) ? MAX_SCORE : MIN_SCORE;
+      return new Result(score, null, true);
+    }
+    Iterable<Integer> moves = game.unsafeGenerateMoves();
+    if (!moves.iterator().hasNext()) { // draw
+      return new Result(DRAW_SCORE, null, true);
+    }
+
+    // Evaluate at zero depth
+    if (depth <= 0) {
+      return new Result(game.evaluate(), null, false);
+    }
+
+    // Recursive search to find best move/score
     List<Integer> pv = new ArrayList<>(depth);
     boolean proof = false;
-    for (int move : game.unsafeGenerateMoves()) {
+    byte ttEntryType = ALL_NODE;
+    int bestMove = -1;
+    for (int move : moves) {
       game.unsafeDoMove(move);
       Result result = search(depth - 1, alpha, beta);
       game.unsafeUndoMove();
@@ -121,9 +161,14 @@ public class Searcher {
       int score = result.getScore();
       if (maxi ? score > alpha : score < beta) {
         if (maxi) alpha = score; else beta = score;
+        bestMove = move;
         proof = result.isProvenResult();
-        if (alpha >= beta)
+        if (alpha >= beta) {
+          ttEntryType = CUT_NODE;
           break;
+        } else {
+          ttEntryType = PV_NODE;
+        }
         pv.clear();
         pv.add(move);
         if (result.getPV() != null)
@@ -131,12 +176,17 @@ public class Searcher {
       }
     }
 
+    // Adjust win/loss score to reflect depth
     int score = maxi ? alpha : beta;
-    if (score == EvaluatedGame.MIN_SCORE + depth - 1) {
+    if (score == MIN_SCORE + depth - 1) {
       score++;
-    } else if (score == EvaluatedGame.MAX_SCORE - depth + 1) {
+    } else if (score == MAX_SCORE - depth + 1) {
       score--;
     }
+
+    // Cache to transposition table
+    table.insert(
+        game.getZobristKey(), ttEntryType, depth, bestMove, score, proof, game.getMoveNumber());
 
     return new Result(score, pv, proof);
   }

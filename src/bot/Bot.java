@@ -60,8 +60,8 @@ public class Bot {
       } else if (parts[0].equals("action") && parts[1].equals("move")) { // own move
         System.err.println("processing: " + line);
         int timeLeft = parseInt(parts[2], TIME_INCREMENT) - TIME_BUFFER;
-        int movesLeft = getMovesLeft();
-        int thinkTime = Math.min(timeLeft / movesLeft + TIME_INCREMENT, timeLeft);
+        int maxMovesLeft = getMaxMovesLeft();
+        int thinkTime = Math.min(timeLeft / Math.max(1, maxMovesLeft) + TIME_INCREMENT, timeLeft);
         int move;
         try {
           move = think(thinkTime);
@@ -69,12 +69,13 @@ public class Bot {
           move = generateRandomMove();
           System.err.println("miscellaneous error: " + e);
         }
-        System.out.println("place_move " + col(move) + " " + row(move));
         if (move != -1) {
+          System.out.println("place_move " + col(move) + " " + row(move));
           game.unsafeDoMove(move);
           System.err.printf("own move: %s (%s, %s)\n", move, row(move), col(move));
           System.err.println(game.getFormattedBoardString());
         } else {
+          System.out.println("no_moves");
           System.err.println("own move: ERROR");
         }
       } else {
@@ -103,7 +104,7 @@ public class Bot {
     }
   }
 
-  private int getMovesLeft() {
+  private int getMaxMovesLeft() {
     return field.getAvailableMoves().size();
   }
 
@@ -113,10 +114,12 @@ public class Bot {
 
     System.err.println("called think(" + time + ")");
 
+    searcher.resetNodes();
+    searcher.getTable().resetStats();
+
     ExecutorService executor = Executors.newSingleThreadExecutor();
     long timeStart = System.currentTimeMillis();
     long timeEnd = timeStart + time;
-    long nodesStart = searcher.getNodes();
     Searcher.Result result = null;
     printSearchResultHeader();
     for (int depth = 1; ; depth++) {
@@ -136,12 +139,13 @@ public class Bot {
       } finally {
         future.cancel(true);
       }
-      printSearchResult(result, depth, System.currentTimeMillis() - timeStart,
-          searcher.getNodes() - nodesStart);
+      printSearchResult(result, depth, System.currentTimeMillis() - timeStart, searcher.getNodes());
       if (result.isProvenResult())
         break;
     }
     executor.shutdown();
+
+    printTranspositionTableStats(searcher.getTable());
 
     return result != null ? result.getPVMove() : generateRandomMove();
   }
@@ -156,15 +160,12 @@ public class Bot {
     System.err.printf("%d\t", nodes);
     if (result.isProvenResult()) {
       String resultStr;
-      int distance;
       if (result.getScore() != 0) {
-        resultStr = "win";
-        distance = Math.abs(Math.abs(result.getScore()) - EvaluatedGame.MAX_SCORE);
+        resultStr = (depth % 2 == 1) ? "win" : "loss";
       } else {
         resultStr = "draw";
-        distance = getMovesLeft();
       }
-      System.err.printf("%s-%d\t", resultStr, distance);
+      System.err.printf("%s\t", resultStr);
     } else {
       System.err.printf("%d\t", result.getScore());
     }
@@ -172,6 +173,17 @@ public class Bot {
       System.err.print(row(move) + "," + col(move) + " ");
     }
     System.err.println();
+  }
+
+  private void printTranspositionTableStats(TranspositionTable table) {
+    TranspositionTable.Stats stats = table.getStats();
+    double putRate = (double) (stats.creates + stats.replaces) / stats.inserts;
+    double hitRate = (double) stats.hits / stats.gets;
+    double load = table.estimateLoad();
+    System.err.print("Table stats: ");
+    System.err.printf("inserts %.2f%%, ", putRate * 100);
+    System.err.printf("hits %.2f%%, ", hitRate * 100);
+    System.err.printf("load %.2f%%\n", load * 100);
   }
 
   private int generateRandomMove() {

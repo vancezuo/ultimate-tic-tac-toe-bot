@@ -21,8 +21,11 @@ public class Util {
   public static final int ANY_MACRO_INDEX = -1;
 
   public static final int PLAYER_NONE = 0, PLAYER_1 = 1, PLAYER_2 = 2;
+  public static final int NUM_PLAYERS = 2;
 
-  private static final int[] ALL_INDEXES = IntStream.range(0, MAX_MOVES).toArray();
+  private static final int[] ALL_INDEXES = IntStream.range(0, BOARD_SIZE).toArray();
+
+  private static final int[] ALL_MACRO_INDEXES = IntStream.range(0, MACROBOARD_SIZE).toArray();
 
   private static final int[] INDEX_TO_ROW = {
       0, 0, 0, 0, 0, 0, 0, 0, 0,
@@ -144,6 +147,15 @@ public class Util {
       {0, 4, 8}, // diagonal
       {2, 4, 6}}; // anti-diagonal
 
+  public static final int CENTRAL_VECTOR = 0, EDGE_VECTOR = 1, DIAGONAL_VECTOR = 2;
+  public static final int NUM_VECTOR_TYPES = 3;
+
+  private static final int[] WIN_VECTOR_TYPES = {
+      EDGE_VECTOR, CENTRAL_VECTOR, EDGE_VECTOR, // rows
+      EDGE_VECTOR, CENTRAL_VECTOR, EDGE_VECTOR, // columns
+      DIAGONAL_VECTOR, // diagonal
+      DIAGONAL_VECTOR}; // anti-diagonal
+
   private static final int[][] MACRO_INDEX_TO_INDEX = {
       {0, 1, 2, 9, 10, 11, 18, 19, 20},
       {3, 4, 5, 12, 13, 14, 21, 22, 23},
@@ -217,6 +229,10 @@ public class Util {
 
   public static int[][] macroWinVectors() {
     return MACRO_WIN_VECTORS;
+  }
+
+  public static int[] winVectorTypes() {
+    return WIN_VECTOR_TYPES;
   }
 
   public static int[] indexesInMacroIndex(int macroInd) {

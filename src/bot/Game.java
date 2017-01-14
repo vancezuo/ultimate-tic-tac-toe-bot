@@ -83,6 +83,14 @@ public class Game {
     return history;
   }
 
+  public int getLastMove() {
+    return history.peekMove();
+  }
+
+  public int getMoveNumber() {
+    return history.size();
+  }
+
   public void parseField(Field field) {
     reset();
 
@@ -116,16 +124,7 @@ public class Game {
   }
 
   public boolean isFinished() {
-    return hasWinner() || isDrawn();
-  }
-
-  private boolean isDrawn() {
-    for (int player : macroboard) {
-      if (player == PLAYER_NONE) {
-        return false;
-      }
-    }
-    return true;
+    return hasWinner() || !unsafeGenerateMoves().iterator().hasNext();
   }
 
   public boolean isEmpty(int ind) {
@@ -133,7 +132,7 @@ public class Game {
   }
 
   public boolean canDoMove(int ind) {
-    return !isFinished()
+    return !hasWinner()
         && ind >= 0
         && ind < BOARD_SIZE
         && isEmpty(ind)
@@ -189,7 +188,7 @@ public class Game {
   }
 
   public Iterable<Integer> generateMoves() {
-    if (isFinished()) {
+    if (hasWinner()) {
       return Collections.emptyList();
     }
     return unsafeGenerateMoves();
@@ -330,18 +329,12 @@ public class Game {
   @Override
   public String toString() {
     return String.format("Game(%s=%s, %s=%s, %s=%s, %s=%s, %s=%s, %s=%s)",
-        "board",
-        Arrays.toString(board),
-        "macroboard",
-        Arrays.toString(macroboard),
-        "nextMacroInd",
-        nextMacroInd,
-        "currentPlayer",
-        currentPlayer,
-        "winner",
-        winner,
-        "history",
-        history);
+        "board", Arrays.toString(board),
+        "macroboard", Arrays.toString(macroboard),
+        "nextMacroInd", nextMacroInd,
+        "currentPlayer", currentPlayer,
+        "winner", winner,
+        "history", history);
   }
 
   @Override
