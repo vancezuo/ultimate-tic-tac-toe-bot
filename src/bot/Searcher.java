@@ -2,12 +2,13 @@ package bot;
 
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Iterator;
 import java.util.List;
 import java.util.concurrent.Callable;
 
 import static bot.EvaluatedGame.*;
 import static bot.TranspositionTable.Entry.Type.*;
-import static bot.Util.MAX_MOVES;
+import static bot.Util.*;
 
 /**
  * @author Vance Zuo
@@ -82,17 +83,34 @@ public class Searcher {
     }
   }
 
+  private static class WeightedMove {
+    Integer move;
+    int score;
+
+    public WeightedMove(Integer move, int score) {
+      this.move = move;
+      this.score = score;
+    }
+  }
+
   private final EvaluatedGame masterGame;
   private final TranspositionTable table;
+
+  private long nodes;
+
+  // Used for move ordering
+  private final int[] history;
+  private int hashMove;
 
   // Separate game for search do/undo move so that exceptions don't pollute 'master' game
   private EvaluatedGame game;
 
-  private long nodes;
-
   public Searcher(EvaluatedGame game) {
     this.masterGame = game;
     this.table = new TranspositionTable();
+
+    this.history = new int[BOARD_SIZE];
+    this.hashMove = -1;
   }
 
   public TranspositionTable getTable() {
@@ -120,15 +138,19 @@ public class Searcher {
 
     // Check transposition table
     TranspositionTable.Entry ttEntry = table.get(game.getZobristKey());
-    if (ttEntry != null && ttEntry.depth >= depth) {
-      byte type = ttEntry.type;
-      int score = ttEntry.score;
-      if (type == PV_NODE
-          || (type == CUT_NODE && (maxi ? score >= beta : score <= alpha))
-          || (type == ALL_NODE && (maxi ? score <= alpha : score >= beta))) {
-        int move = ttEntry.move;
-        List<Integer> pv = (move != -1) ? Collections.singletonList(move) : null;
-        return new Result(score, pv, ttEntry.proof);
+    if (ttEntry != null) {
+      if (ttEntry.depth >= depth) {
+        byte type = ttEntry.type;
+        int score = ttEntry.score;
+        if (type == PV_NODE
+            || (type == CUT_NODE && (maxi ? score >= beta : score <= alpha))
+            || (type == ALL_NODE && (maxi ? score <= alpha : score >= beta))) {
+          int move = ttEntry.move;
+          List<Integer> pv = (move != -1) ? Collections.singletonList(move) : null;
+          return new Result(score, pv, ttEntry.proof);
+        }
+      } else {
+        hashMove = ttEntry.move;
       }
     }
 
@@ -137,8 +159,8 @@ public class Searcher {
       int score = (game.getWinner() == PLAYER_MAX) ? MAX_SCORE : MIN_SCORE;
       return new Result(score, null, true);
     }
-    Iterable<Integer> moves = game.unsafeGenerateMoves();
-    if (!moves.iterator().hasNext()) { // draw
+    Iterator<Integer> moves = generateSortedMoves().iterator();
+    if (!moves.hasNext()) { // draw
       return new Result(DRAW_SCORE, null, true);
     }
 
@@ -152,7 +174,8 @@ public class Searcher {
     boolean proof = false;
     byte ttEntryType = ALL_NODE;
     int bestMove = -1;
-    for (int move : moves) {
+    while (moves.hasNext()) {
+      int move = moves.next();
       game.unsafeDoMove(move);
       Result result = search(depth - 1, alpha, beta);
       game.unsafeUndoMove();
@@ -165,6 +188,7 @@ public class Searcher {
         proof = result.isProvenResult();
         if (alpha >= beta) {
           ttEntryType = CUT_NODE;
+          history[move] += 1 << depth;
           break;
         } else {
           ttEntryType = PV_NODE;
@@ -190,4 +214,78 @@ public class Searcher {
 
     return new Result(score, pv, proof);
   }
+
+  public Iterable<Integer> generateSortedMoves() {
+    Iterator<Integer> movesIterator = game.unsafeGenerateMoves().iterator();
+    if (!movesIterator.hasNext()) {
+      return Collections.emptyList();
+    }
+
+    int maxLength = (game.getNextMacroIndex() != ANY_MACRO_INDEX) ? MICROBOARD_SIZE : BOARD_SIZE;
+
+    int[] moves = new int[maxLength];
+    int[] scores = new int[maxLength];
+
+    int i = 0;
+    while (movesIterator.hasNext()) {
+      int move = movesIterator.next();
+      moves[i] = move;
+      scores[i] = (hashMove == move) ? Integer.MAX_VALUE : history[move];
+      i++;
+    }
+
+    final int originalLen = i;
+    return () -> new Iterator<Integer>() {
+      int len = originalLen;
+
+      @Override
+      public boolean hasNext() {
+        return len > 0;
+      }
+
+      @Override
+      public Integer next() {
+        int bestI = 0;
+        for (int i = 1; i < len; i++) {
+          if (scores[bestI] < scores[i]) {
+            bestI = i;
+          }
+        }
+        len--;
+        if (bestI != len) {
+          // Swap best with last
+          int tempMove, tempScore;
+          tempMove = moves[bestI];
+          tempScore = scores[bestI];
+          moves[bestI] = moves[len];
+          scores[bestI] = scores[len];
+          moves[len] = tempMove;
+          scores[len] = tempScore;
+        }
+        return moves[len];
+      }
+    };
+
+//    PriorityQueue<WeightedMove> sortedMoves =
+//        new PriorityQueue<>(maxLength, (m1, m2) -> m2.score - m1.score);
+//
+//    while (movesIterator.hasNext()) {
+//      int move = movesIterator.next();
+//      int score = (hashMove == move) ? Integer.MAX_VALUE : history[move];
+//      sortedMoves.add(new WeightedMove(move, score));
+//    }
+//
+//    return () -> new Iterator<Integer>() {
+//      @Override
+//      public boolean hasNext() {
+//        return !sortedMoves.isEmpty();
+//      }
+//
+//      @Override
+//      public Integer next() {
+//        return sortedMoves.remove().move;
+//      }
+//    };
+  }
+
 }

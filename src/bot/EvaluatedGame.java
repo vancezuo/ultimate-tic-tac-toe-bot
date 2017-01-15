@@ -7,7 +7,6 @@ import static bot.Util.PLAYER_2;
  * @author Vance Zuo
  */
 public class EvaluatedGame extends Game {
-
   public static final int PLAYER_MAX = PLAYER_1;
   public static final int PLAYER_MIN = PLAYER_2;
 
@@ -45,10 +44,6 @@ public class EvaluatedGame extends Game {
 
   public int evaluate() {
     return features.score(weights);
-  }
-
-  public Iterable<Integer> unsafeGenerateMoves() {
-    return super.unsafeGenerateMoves();
   }
 
   public void unsafeDoMove(int move) {
