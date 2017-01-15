@@ -159,14 +159,14 @@ public class Searcher {
       int score = (game.getWinner() == PLAYER_MAX) ? MAX_SCORE : MIN_SCORE;
       return new Result(score, null, true);
     }
-    Iterator<Integer> moves = generateSortedMoves().iterator();
+    Iterator<Integer> moves = game.unsafeGenerateMoves().iterator();
     if (!moves.hasNext()) { // draw
       return new Result(DRAW_SCORE, null, true);
     }
 
     // Evaluate at zero depth
     if (depth <= 0) {
-      return new Result(game.evaluate(), null, false);
+      return new Result(quiescence(alpha, beta), null, false);
     }
 
     // Recursive search to find best move/score
@@ -174,8 +174,7 @@ public class Searcher {
     boolean proof = false;
     byte ttEntryType = ALL_NODE;
     int bestMove = -1;
-    while (moves.hasNext()) {
-      int move = moves.next();
+    for (int move : generateSortedMoves(moves)) {
       game.unsafeDoMove(move);
       Result result = search(depth - 1, alpha, beta);
       game.unsafeUndoMove();
@@ -183,7 +182,8 @@ public class Searcher {
         return null;
       int score = result.getScore();
       if (maxi ? score > alpha : score < beta) {
-        if (maxi) alpha = score; else beta = score;
+        if (maxi) alpha = score;
+        else beta = score;
         bestMove = move;
         proof = result.isProvenResult();
         if (alpha >= beta) {
@@ -215,12 +215,59 @@ public class Searcher {
     return new Result(score, pv, proof);
   }
 
-  public Iterable<Integer> generateSortedMoves() {
-    Iterator<Integer> movesIterator = game.unsafeGenerateMoves().iterator();
-    if (!movesIterator.hasNext()) {
-      return Collections.emptyList();
+  private int quiescence(int alpha, int beta) {
+    nodes++;
+
+    boolean maxi = game.getCurrentPlayer() == PLAYER_MAX;
+
+    // Check win/draw conditions
+    if (game.hasWinner()) {
+      return (game.getWinner() == PLAYER_MAX) ? MAX_SCORE : MIN_SCORE;
+    }
+    Iterator<Integer> moves = game.unsafeGenerateMoves().iterator();
+    if (!moves.hasNext()) { // draw
+      return DRAW_SCORE;
     }
 
+    int standPat = game.evaluate();
+    if (maxi) {
+      if (standPat >= beta)
+        return beta;
+      if (alpha < standPat)
+        alpha = standPat;
+    } else {
+      if (standPat <= alpha)
+        return alpha;
+      if (beta > standPat)
+        beta = standPat;
+    }
+
+    while (moves.hasNext()) {
+      int move = moves.next();
+      if (!game.unsafeCheckCompletesLine(move)) {
+        continue;
+      }
+      game.unsafeDoMove(move);
+      int score = quiescence(alpha, beta);
+      game.unsafeUndoMove();
+
+      if (maxi) {
+        if (score >= beta)
+          return beta;
+        if (alpha < score)
+          alpha = score;
+      } else {
+        if (score <= alpha)
+          return alpha;
+        if (beta > score)
+          beta = score;
+      }
+    }
+
+    return maxi ? alpha : beta;
+  }
+
+  public Iterable<Integer> generateSortedMoves(Iterator<Integer> movesIterator) {
     int maxLength = (game.getNextMacroIndex() != ANY_MACRO_INDEX) ? MICROBOARD_SIZE : BOARD_SIZE;
 
     int[] moves = new int[maxLength];

@@ -2,10 +2,7 @@ package bot;
 
 import theaigames.Field;
 
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.Iterator;
-import java.util.NoSuchElementException;
+import java.util.*;
 
 import static bot.Util.*;
 
@@ -143,6 +140,17 @@ public class Game {
     return !history.empty();
   }
 
+  public boolean unsafeCheckCompletesLine(int ind) {
+    board[ind] = currentPlayer;
+    boolean completesLine = checkMicroWin(ind);
+    board[ind] = PLAYER_NONE;
+    return completesLine;
+  }
+
+  public boolean checkCompletesLine(int ind) {
+    return canDoMove(ind) && unsafeCheckCompletesLine(ind);
+  }
+
   public void unsafeDoMove(int ind) {
     history.push(ind, nextMacroInd);
 
@@ -200,6 +208,24 @@ public class Game {
     } else {
       return unsafeGenerateMovesNextMacroboard();
     }
+  }
+
+  public int generateRandomMove() {
+    Random rand = new Random();
+
+    List<Integer> moves = new ArrayList<>();
+    for (int move : generateMoves()) {
+      moves.add(move);
+    }
+
+    int i = 0;
+    for (int move : moves) {
+      if (rand.nextInt(moves.size() - i) == 0)
+        return move;
+      i++;
+    }
+
+    return -1; // should not reach this point
   }
 
   private Iterable<Integer> unsafeGenerateMovesEntireBoard() {
