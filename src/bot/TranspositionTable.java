@@ -101,9 +101,9 @@ public class TranspositionTable {
     Entry entry = table[keyToIndex(key)];
     if (entry.type != Entry.Type.EMPTY) {
       // Depth and move number replacement strategy
-//      if (entry.depth > depth && entry.moveNum >= this.moveNum) {
-//        return false;
-//      }
+      if (entry.depth > depth && entry.moveNum >= this.moveNum) {
+        return false;
+      }
       stats.replaces++;
     } else {
       stats.creates++;
