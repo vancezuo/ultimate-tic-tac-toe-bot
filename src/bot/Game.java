@@ -174,6 +174,13 @@ public class Game {
     return true;
   }
 
+  public void doNullMove() {
+    history.push(-1, nextMacroInd);
+
+    nextMacroInd = ANY_MACRO_INDEX;
+    currentPlayer = swapPlayer(currentPlayer);
+  }
+
   public void unsafeUndoMove() {
     int prevInd = history.peekMove();
     int prevNextMacroInd = history.peekMacroInd();
@@ -193,6 +200,14 @@ public class Game {
     unsafeUndoMove();
     updateWinner();
     return true;
+  }
+
+  public void undoNullMove() {
+    int prevNextMacroInd = history.peekMacroInd();
+    history.pop();
+
+    nextMacroInd = prevNextMacroInd;
+    currentPlayer = swapPlayer(currentPlayer);
   }
 
   public Iterable<Integer> generateMoves() {

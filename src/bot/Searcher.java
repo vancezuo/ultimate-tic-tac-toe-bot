@@ -105,6 +105,9 @@ public class Searcher {
   // Separate game for search do/undo move so that exceptions don't pollute 'master' game
   private EvaluatedGame game;
 
+  private boolean nullMoveAllowed;
+  private int baseDepth;
+
   public Searcher(EvaluatedGame game) {
     this.masterGame = game;
     this.table = new TranspositionTable();
@@ -127,6 +130,8 @@ public class Searcher {
 
   public Result search(int depth) {
     game = new EvaluatedGame(masterGame);
+    nullMoveAllowed = true;
+    baseDepth = depth;
     table.setMoveNumberCutoff(game.getMoveNumber());
     return search(depth, MIN_SCORE - 1, MAX_SCORE + 1);
   }
@@ -169,17 +174,49 @@ public class Searcher {
       return new Result(quiescence(alpha, beta), null, false);
     }
 
+    // Null move reduction
+//    if (nullMoveAllowed && depth < baseDepth) {
+//      int r = (depth + 14) / 5; // min: 3
+//      nullMoveAllowed = false;
+//      game.doNullMove();
+//      Result nullResult = maxi
+//          ? search(depth - r - 1, beta - 1, beta)
+//          : search(depth - r - 1, alpha, alpha + 1);
+//      game.undoNullMove();
+//      nullMoveAllowed = true;
+//      if (maxi ? nullResult.getScore() >= beta : nullResult.getScore() <= alpha) {
+//        depth -= 3;
+//        if (depth <= 0) {
+//          return new Result(quiescence(alpha, beta), null, false);
+//        }
+//      }
+//    }
+
     // Recursive search to find best move/score
     List<Integer> pv = new ArrayList<>(depth);
     boolean proof = false;
     byte ttEntryType = ALL_NODE;
     int bestMove = -1;
+    boolean searchPv = true; // used for negascout/PVS
     for (int move : generateSortedMoves(moves)) {
+      Result result;
       game.unsafeDoMove(move);
-      Result result = search(depth - 1, alpha, beta);
+      if (searchPv) {
+        result = search(depth - 1, alpha, beta);
+      } else {
+        if (maxi) {
+          result = search(depth - 1, alpha, alpha + 1);
+          if (result.getScore() > alpha)
+            result = search(depth - 1, alpha, beta);
+        } else {
+          result = search(depth - 1, beta - 1, beta);
+          if (result.getScore() < beta)
+            result = search(depth - 1, alpha, beta);
+        }
+      }
       game.unsafeUndoMove();
-      if (result == null || Thread.currentThread().isInterrupted())
-        return null;
+      if (Thread.currentThread().isInterrupted())
+        return new Result(0, null, false);
       int score = result.getScore();
       if (maxi ? score > alpha : score < beta) {
         if (maxi) alpha = score;
@@ -192,6 +229,7 @@ public class Searcher {
           break;
         } else {
           ttEntryType = PV_NODE;
+          searchPv = false;
         }
         pv.clear();
         pv.add(move);
