@@ -1,14 +1,15 @@
 package bot;
 
-import java.io.Serializable;
 import java.security.SecureRandom;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.List;
 import java.util.Random;
 
 /**
  * @author Vance Zuo
  */
-public class Weights implements Serializable {
+public class Weights {
   public static final int NUM_PARAMETERS = 25;
 
   public static final int[] SINGLE_LINE_LARGE_BOARD = {100, 100, 100};
@@ -46,12 +47,66 @@ public class Weights implements Serializable {
         ANY_NEXT_MACRO_IND);
   }
 
+  public int hammingDistance(Weights other) {
+    int distance = 0;
+    distance += hammingDistance(macroboardOneInRow, other.macroboardOneInRow);
+    distance += hammingDistance(macroboardTwoInRow, other.macroboardTwoInRow);
+    distance += hammingDistance(microboardOneInRow, other.microboardOneInRow);
+    distance += hammingDistance(microboardTwoInRow, other.microboardTwoInRow);
+    distance += Math.abs(anyNextMacroInd - other.anyNextMacroInd);
+    return distance;
+  }
+
+  private static int hammingDistance(int[][] arr1, int[][] arr2) {
+    int distance = 0;
+    for (int i = 0; i < arr1.length; i++) {
+      distance += hammingDistance(arr1[i], arr2[i]);
+    }
+    return distance;
+  }
+
+  private static int hammingDistance(int[] arr1, int[] arr2) {
+    int distance = 0;
+    for (int i = 0; i < arr1.length; i++) {
+      distance += Math.abs(arr1[i] - arr2[i]);
+    }
+    return distance;
+  }
+
+  public Weights average(Weights other, double weight) {
+    List<Double> weightsVector = new ArrayList<>();
+    average(weightsVector, macroboardOneInRow, other.macroboardOneInRow, weight);
+    average(weightsVector, macroboardTwoInRow, other.macroboardTwoInRow, weight);
+    average(weightsVector, microboardOneInRow, other.microboardOneInRow, weight);
+    average(weightsVector, microboardTwoInRow, other.microboardTwoInRow, weight);
+    average(weightsVector, anyNextMacroInd, other.anyNextMacroInd, weight);
+    double magnitude = Math.sqrt(weightsVector.stream().mapToDouble(x -> x * x).sum());
+    return weightsVectorToWeights(
+        weightsVector.stream().mapToInt(x -> (int) Math.round(x / magnitude * 10000)).toArray());
+  }
+
+  private static void average(List<Double> result, int[][] arr1, int[][] arr2, double weight) {
+    for (int i = 0; i < arr1.length; i++) {
+      average(result, arr1[i], arr2[i], weight);
+    }
+  }
+
+  private static void average(List<Double> result, int[] arr1, int[] arr2, double weight) {
+    for (int i = 0; i < arr1.length; i++) {
+      average(result, arr1[i], arr2[i], weight);
+    }
+  }
+
+  private static void average(List<Double> result, int x1, int x2, double weight) {
+    result.add(x1 * (1 - weight) + x2 * weight);
+  }
+
   public static Weights randomWeights() {
     int[] weights = randomWeightsVector(NUM_PARAMETERS);
     return weightsVectorToWeights(weights);
   }
 
-  public static Weights weightsVectorToWeights(int[] weights) {
+  private static Weights weightsVectorToWeights(int[] weights) {
     int k = 0;
     int[] singleLineLargeBoard = new int[3];
     for (int i = 0; i < singleLineLargeBoard.length; i++) {
@@ -83,7 +138,7 @@ public class Weights implements Serializable {
         anyMacroboardIndex);
   }
 
-  public static int[] randomWeightsVector(int length) {
+  private static int[] randomWeightsVector(int length) {
     Random random = new SecureRandom();
     double[] relativeWeights = new double[length];
     double totalSquared = 0;
@@ -100,6 +155,37 @@ public class Weights implements Serializable {
       weights[i] = (int) Math.round(relativeWeights[i] * 10000);
     }
     return weights;
+  }
+
+  public String serializeString() {
+    StringBuilder sb = new StringBuilder();
+    for (int value : macroboardOneInRow) {
+      sb.append(Integer.toString(value));
+      sb.append(",");
+    }
+    for (int value : macroboardTwoInRow) {
+      sb.append(Integer.toString(value));
+      sb.append(",");
+    }
+    for (int[] x : microboardOneInRow) {
+      for (int value : x) {
+        sb.append(Integer.toString(value));
+        sb.append(",");
+      }
+    }
+    for (int[] x : microboardTwoInRow) {
+      for (int value : x) {
+        sb.append(Integer.toString(value));
+        sb.append(",");
+      }
+    }
+    sb.append(anyNextMacroInd);
+    return sb.toString();
+  }
+
+  public static Weights deserializeString(String s) {
+    int[] weights = Arrays.stream(s.split(",")).mapToInt(Integer::parseInt).toArray();
+    return weightsVectorToWeights(weights);
   }
 
   @Override

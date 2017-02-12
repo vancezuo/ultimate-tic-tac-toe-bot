@@ -2,9 +2,6 @@ package bot;
 
 import theaigames.Field;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Random;
 import java.util.Scanner;
 import java.util.concurrent.*;
 
@@ -66,7 +63,7 @@ public class Bot {
         try {
           move = think(thinkTime);
         } catch (Exception e) {
-          move = generateRandomMove();
+          move = game.generateRandomMove();
           System.err.println("miscellaneous error: " + e);
         }
         if (move != -1) {
@@ -147,7 +144,7 @@ public class Bot {
 
     printTranspositionTableStats(searcher.getTable());
 
-    return result != null ? result.getPVMove() : generateRandomMove();
+    return result != null ? result.getPVMove() : game.generateRandomMove();
   }
 
   private void printSearchResultHeader() {
@@ -184,23 +181,5 @@ public class Bot {
     System.err.printf("inserts %.2f%%, ", putRate * 100);
     System.err.printf("hits %.2f%%, ", hitRate * 100);
     System.err.printf("load %.2f%%\n", load * 100);
-  }
-
-  private int generateRandomMove() {
-    Random rand = new Random();
-
-    List<Integer> moves = new ArrayList<>();
-    for (int move : game.generateMoves()) {
-      moves.add(move);
-    }
-
-    int i = 0;
-    for (int move : moves) {
-      if (rand.nextInt(moves.size() - i) == 0)
-        return move;
-      i++;
-    }
-
-    return -1; // should not reach this point
   }
 }
