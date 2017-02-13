@@ -12,12 +12,13 @@ import java.util.Random;
 public class Weights {
   public static final int NUM_PARAMETERS = 25;
 
-  public static final int[] SINGLE_LINE_LARGE_BOARD = {100, 100, 100};
-  public static final int[] DOUBLE_LINE_LARGE_BOARD = {1000, 1000, 1000};
-  public static final int[][] SINGLE_LINE_SMALL_BOARD = {{1, 1, 1}, {1, 1, 1}, {1, 1, 1}};
+  public static final int[] SINGLE_LINE_LARGE_BOARD = {2394, 3683, 2887};
+  public static final int[] DOUBLE_LINE_LARGE_BOARD = {1606, 2730, 2853};
+  public static final int[][] SINGLE_LINE_SMALL_BOARD = {
+      {2156, 1702, 1268}, {2810, 1549, 1110}, {1862, 1608, 1422}};
   public static final int[][] DOUBLE_LINE_SMALL_BOARD = {
-      {10, 10, 10}, {10, 10, 10}, {10, 10, 10}};
-  public static final int ANY_NEXT_MACRO_IND = 50;
+      {1274, 1684, 1817}, {2316, 2058, 1069}, {903, 1537, 1461}};
+  public static final int ANY_NEXT_MACRO_IND = 1275;
 
   public final int[] macroboardOneInRow;
   public final int[] macroboardTwoInRow;
