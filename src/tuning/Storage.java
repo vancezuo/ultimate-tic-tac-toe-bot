@@ -6,7 +6,9 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -71,6 +73,18 @@ public class Storage {
       return 0;
     }
     return 1 + getLastPopulationEntry().id;
+  }
+
+  public Set<Integer> getBotIdsInPopulation(int populationId) {
+    Set<Integer> botIds = new HashSet<>();
+
+    for (PopulationEntry populationEntry : populationEntries) {
+      if (populationEntry.id == populationId) {
+        populationEntry.botIds.forEach(botIds::addAll);
+      }
+    }
+
+    return botIds;
   }
 
   public void load() {

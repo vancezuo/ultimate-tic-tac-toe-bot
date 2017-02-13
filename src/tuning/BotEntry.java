@@ -11,7 +11,9 @@ public class BotEntry {
   public static final int DEFAULT_ELO = 2000;
 
   int id;
-  double elo, peakElo, avgOppElo;
+  double elo;
+  double peakElo;
+  double avgOppElo;
   int games;
   Weights weights;
 
@@ -36,6 +38,14 @@ public class BotEntry {
 
   public double getElo() {
     return elo;
+  }
+
+  public double getPeakElo() {
+    return peakElo;
+  }
+
+  public int getGames() {
+    return games;
   }
 
   public String toRowString() {
