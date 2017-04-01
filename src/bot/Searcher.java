@@ -116,6 +116,10 @@ public class Searcher {
     this.hashMove = -1;
   }
 
+  public Game getGame() {
+    return masterGame;
+  }
+
   public TranspositionTable getTable() {
     return table;
   }

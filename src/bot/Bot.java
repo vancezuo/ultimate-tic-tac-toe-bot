@@ -5,6 +5,8 @@ import theaigames.Field;
 import java.util.Scanner;
 import java.util.concurrent.*;
 
+import static bot.EvaluatedGame.PLAYER_MAX;
+import static bot.EvaluatedGame.PLAYER_MIN;
 import static bot.Util.*;
 
 /**
@@ -136,7 +138,12 @@ public class Bot {
       } finally {
         future.cancel(true);
       }
-      printSearchResult(result, depth, System.currentTimeMillis() - timeStart, searcher.getNodes());
+      printSearchResult(
+          result,
+          searcher.getGame().getCurrentPlayer(),
+          depth,
+          System.currentTimeMillis() - timeStart,
+          searcher.getNodes());
       if (result.isProvenResult())
         break;
     }
@@ -151,14 +158,20 @@ public class Bot {
     System.err.println("Depth\tTime\tNodes\tScore\tVariation");
   }
 
-  private void printSearchResult(Searcher.Result result, int depth, long time, long nodes) {
+  private void printSearchResult(
+      Searcher.Result result,
+      int currentPlayer,
+      int depth,
+      long time,
+      long nodes) {
     System.err.printf("%d\t", depth);
     System.err.printf("%.3f\t", time / 1000.0);
     System.err.printf("%d\t", nodes);
     if (result.isProvenResult()) {
       String resultStr;
       if (result.getScore() != 0) {
-        resultStr = (depth % 2 == 1) ? "win" : "loss";
+        int winningPlayer = result.getScore() > 0 ? PLAYER_MAX : PLAYER_MIN;
+        resultStr = (winningPlayer == currentPlayer) ? "win" : "loss";
       } else {
         resultStr = "draw";
       }
