@@ -137,14 +137,20 @@ public class GeneticAlgorithm {
         System.exit(1);
       }
 
-      IntStream.range(0, currentPopulation.botIds.size()).forEach(
-          species -> currentPopulation.botIds.get(species).forEach(
-              id -> System.out.println(String.format(
-                  "%s | %s (%.0f): %s",
-                  (char) (species + 'A'),
-                  id,
-                  bots.get(id).elo,
-                  bots.get(id).weights.serializeString()))));
+      IntStream.range(0, currentPopulation.botIds.size())
+          .forEach(species -> currentPopulation.botIds.get(species)
+              .stream()
+              .map(id -> bots.get(id))
+              .sorted((o1, o2) -> o1.elo > o2.elo ? -1 : 1)
+              .forEach(
+                  bot -> System.out.println(String.format(
+                      "%s | %s (%.0f): %s",
+                      (char) (species + 'A'),
+                      bot.id,
+                      bot.elo,
+                      bot.weights.serializeString()))));
+
+      System.out.println("Average hamming distances: " + calculateAverageHammingDistance());
 
       currentPopulation = new PopulationEntry(
           currentPopulation.id,
@@ -315,7 +321,7 @@ public class GeneticAlgorithm {
     return randomStartMoves;
   }
 
-  public void updateElo(BotEntry bot1, BotEntry bot2, int kFactor, int result) {
+  private void updateElo(BotEntry bot1, BotEntry bot2, int kFactor, int result) {
     double rating1 = bot1.elo;
     double rating2 = bot2.elo;
     double q1 = Math.pow(10, rating1 / 400);
@@ -338,5 +344,24 @@ public class GeneticAlgorithm {
     if (bot2.peakElo < bot2.elo) {
       bot2.peakElo = bot2.elo;
     }
+  }
+
+  private List<Double> calculateAverageHammingDistance() {
+    List<Double> averages = new ArrayList<>();
+    for (List<Integer> species : currentPopulation.botIds) {
+      double totalDistances = 0;
+      double numDistances = 0;
+      for (int botId : species) {
+        for (int otherBotId : species) {
+          if (botId != otherBotId) {
+            totalDistances +=
+                bots.get(botId).weights.hammingDistance(bots.get(otherBotId).weights);
+            numDistances++;
+          }
+        }
+      }
+      averages.add(totalDistances / numDistances);
+    }
+    return averages;
   }
 }
