@@ -49,6 +49,8 @@ public class Features {
           int vectorType = vectorTypes[i];
           int unopposedInRow = computeUnopposedInRow(player, board, vector);
           switch (unopposedInRow) {
+            case 3:
+              // fall through
             case 2:
               TWO_IN_ROW_TABLE[tableIndex][vectorType][playerIndex]++;
               // fall through
