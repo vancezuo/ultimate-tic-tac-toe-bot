@@ -19,15 +19,15 @@ public class Main {
   }
 
   public static void runTournament() {
-    Tournament t = new Tournament(4, 36, BotEntry::getElo);
-    t.run(new Tournament.RunParameters(6, 4, 8, 8));
+    Tournament t = new Tournament(7, 24, BotEntry::getElo);
+    t.run(new Tournament.RunParameters(6, 4, 10, 9));
   }
 
   public static void runGeneticAlgorithm() {
     GeneticAlgorithm ga = new GeneticAlgorithm();
-    ga.prepareNew(new GeneticAlgorithm.PrepareParameters(6, 16));
+    ga.prepareNew(new GeneticAlgorithm.PrepareParameters(8, 32, 0));
     ga.prepareContinue();
-    ga.run(new GeneticAlgorithm.RunParameters(-1, 0.05, 0.1, 4, 5, 8, 2, 6, 64, 0.125, 0.25));
+    ga.run(new GeneticAlgorithm.RunParameters(-1, 0.02, 0.1, 4, 4, 40, 10, 2, 16, 0.125, 0.25));
   }
 
   public static void runTestMatch() {

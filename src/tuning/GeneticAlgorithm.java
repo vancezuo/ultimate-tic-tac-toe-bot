@@ -6,8 +6,9 @@ import bot.Weights;
 
 import java.time.LocalDateTime;
 import java.util.*;
+import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
+import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
@@ -19,10 +20,12 @@ public class GeneticAlgorithm {
   public static class PrepareParameters {
     final int numSpecies;
     final int popPerSpecies;
+    final double defaultWeightWeight;
 
-    public PrepareParameters(int numSpecies, int popPerSpecies) {
+    public PrepareParameters(int numSpecies, int popPerSpecies, double defaultWeightWeight) {
       this.numSpecies = numSpecies;
       this.popPerSpecies = popPerSpecies;
+      this.defaultWeightWeight = defaultWeightWeight;
     }
   }
 
@@ -68,10 +71,12 @@ public class GeneticAlgorithm {
 
   Map<Integer, BotEntry> bots;
   PopulationEntry currentPopulation;
+  int totalGames;
 
   public GeneticAlgorithm(Storage storage) {
     this.storage = storage;
     this.bots = new HashMap<>();
+    this.totalGames = 0;
   }
 
   public GeneticAlgorithm() {
@@ -89,8 +94,8 @@ public class GeneticAlgorithm {
       List<Integer> botIds = new ArrayList<>();
       for (int j = 0; j < params.popPerSpecies; j++) {
         Weights weights = new Weights();
-        if (i != 0 || j != 0) {
-          weights = weights.average(Weights.randomWeights(), 0.5);
+        if (i != 0 || j != 0 || params.defaultWeightWeight == 0) {
+          weights = weights.average(Weights.randomWeights(), 1 - params.defaultWeightWeight);
         }
         BotEntry botEntry = storage.addBotEntry(weights);
         bots.put(botEntry.id, botEntry);
@@ -118,7 +123,13 @@ public class GeneticAlgorithm {
 
   public void run(RunParameters params) {
     for (int i = 0, l = params.generations; l == -1 || i < l; i++) {
-      ExecutorService executor = Executors.newFixedThreadPool(params.cpus);
+      ExecutorService executor = new ThreadPoolExecutor(
+          params.cpus,
+          params.cpus,
+          0L,
+          TimeUnit.MILLISECONDS,
+          new ArrayBlockingQueue<Runnable>(100),
+          new ThreadPoolExecutor.CallerRunsPolicy());
       System.out.println(String.format(
           "Generation %s (%s)",
           currentPopulation.generation,
@@ -137,18 +148,13 @@ public class GeneticAlgorithm {
         System.exit(1);
       }
 
+      System.out.println("Best bots per species:");
       IntStream.range(0, currentPopulation.botIds.size())
           .forEach(species -> currentPopulation.botIds.get(species)
               .stream()
               .map(id -> bots.get(id))
-              .sorted((o1, o2) -> o1.elo > o2.elo ? -1 : 1)
-              .forEach(
-                  bot -> System.out.println(String.format(
-                      "%s | %s (%.0f): %s",
-                      (char) (species + 'A'),
-                      bot.id,
-                      bot.elo,
-                      bot.weights.serializeString()))));
+              .min((o1, o2) -> o1.elo > o2.elo ? -1 : 1)
+              .ifPresent(bot -> printBotStats(species, bot)));
 
       System.out.println("Average hamming distances: " + calculateAverageHammingDistance());
 
@@ -162,6 +168,15 @@ public class GeneticAlgorithm {
 
       beep();
     }
+  }
+
+  private void printBotStats(int species, BotEntry bot) {
+    System.out.println(String.format(
+        "%s | %s (%.0f): %s",
+        (char) (species + 'A'),
+        bot.id,
+        bot.elo,
+        bot.weights.serializeString()));
   }
 
   private void beep() {
@@ -298,6 +313,9 @@ public class GeneticAlgorithm {
       int result = match.play(searchDepth);
       synchronized (this) {
         updateElo(bot1, bot2, kFactor, result);
+        if (++totalGames % 10000 == 0) {
+          System.out.println(String.format("Ran %s games (%s)", totalGames, LocalDateTime.now()));
+        }
       }
     });
   }
